@@ -276,6 +276,14 @@ redirect:
     }
 }
 
+void Engine::NoRoute(RouteHandler handler)
+{
+    noroute = [handler](Context *ctx)
+    {
+        handler(ctx->getRequest(), ctx->getResponse(), ctx);
+    };
+}
+
 // Method to walk through the tree and find the handle or trailing slash
 // recommendation
 auto node::getValue(std::string path, Params *params,
