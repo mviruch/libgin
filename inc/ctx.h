@@ -1,8 +1,26 @@
 #pragma once
 
+#include <algorithm>
 #include <cstring>
+#include <sstream>
 #include <string>
 #include <unordered_map>
+
+struct CaseInsensitiveHash {
+    size_t operator()(const std::string &key) const {
+        std::string lowerKey = key;
+        std::transform(lowerKey.begin(), lowerKey.end(), lowerKey.begin(), ::tolower);
+        return std::hash<std::string>()(lowerKey); // 使用标准库的哈希函数
+    }
+};
+
+struct CaseInsensitiveEqual {
+    bool operator()(const std::string &a, const std::string &b) const {
+        return std::equal(a.begin(), a.end(), b.begin(), b.end(),
+                          [](char c1, char c2) { return ::tolower(c1) == ::tolower(c2); });
+    }
+};
+
 
 struct response_s
 {
@@ -153,6 +171,6 @@ struct request_s
     std::string method;
     std::string url;
     std::string version;
-    std::unordered_map<std::string, std::string> headers;
-    std::string body;
+    std::unordered_map<std::string, std::string, CaseInsensitiveHash, CaseInsensitiveEqual> headers;
+    std::istream *body;
 };

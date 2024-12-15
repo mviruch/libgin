@@ -85,6 +85,7 @@ auto uv_http_conn_init(uv_http_conn_s *conn, uv_http_s *http) -> int
     llhttp_init(&conn->parser, HTTP_REQUEST, &conn->settings);
 
     conn->buf = new ThreadSafeReaderStreambuf(1024);
+    conn->request.body = new std::istream(conn->buf);
     conn->http = http;
 
     // int err = uv_async_init(http->loop, &conn->async, request_done_async);
@@ -221,6 +222,13 @@ auto onheaderscomplete(llhttp_t *parser) -> int
     uv_thread_t tid;
     uv_http_conn_s *conn = container_of(parser, uv_http_conn_s, parser);
 
+    auto contentlength = conn->request.headers.find("Content-Length");
+    if (contentlength != conn->request.headers.end())
+    {
+        auto *buf = static_cast<ThreadSafeReaderStreambuf *>(conn->buf);
+        buf->setRemainingSize(std::stoi(contentlength->second));
+    }
+
     uv_queue_work(
         conn->http->loop, &conn->work,
         [](uv_work_t *req)
@@ -245,8 +253,6 @@ auto onbody(llhttp_t *parser, const char *at, size_t length) -> int
 auto onmessagecomplete(llhttp_t *parser) -> int
 {
     uv_http_conn_s *conn = container_of(parser, uv_http_conn_s, parser);
-    auto *buf = static_cast<ThreadSafeReaderStreambuf *>(conn->buf);
-    buf->setEof(true);
     return 0;
 }
 
@@ -290,6 +296,7 @@ void request_close(uv_http_conn_s *conn)
             container_of((uv_tcp_t *)handle, uv_http_conn_s, client);
         delete static_cast<ThreadSafeReaderStreambuf *>(conn->buf);
         delete conn->response_str;
+        delete conn->request.body;
         delete conn; });
 }
 
